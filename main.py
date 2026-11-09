@@ -101,3 +101,16 @@ hourly_vol = (
 hourly_vol[["SettlementPoint", "Year", "HourlyVolatility"]].to_csv(
     OUTPUT_DIR / "HourlyVolatilityByYear.csv", index=False
 )
+
+
+# ======================================================================
+# Task 6 — Highest-volatility hub per year → MaxVolatilityByYear.csv
+# ======================================================================
+# For each year, keep the hub row with the highest hourly volatility
+# (compared at full precision, so close calls like 2016 are not rounded into a tie)
+max_vol = hourly_vol.loc[hourly_vol.groupby("Year")["HourlyVolatility"].idxmax()]
+
+# Same columns as Task 5
+max_vol[["SettlementPoint", "Year", "HourlyVolatility"]].to_csv(
+    OUTPUT_DIR / "MaxVolatilityByYear.csv", index=False
+)
