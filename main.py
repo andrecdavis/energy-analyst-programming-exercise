@@ -114,3 +114,26 @@ max_vol = hourly_vol.loc[hourly_vol.groupby("Year")["HourlyVolatility"].idxmax()
 max_vol[["SettlementPoint", "Year", "HourlyVolatility"]].to_csv(
     OUTPUT_DIR / "MaxVolatilityByYear.csv", index=False
 )
+
+
+# ======================================================================
+# Task 7 — Model-ready files: output/formattedSpotHistory/spot_<SettlementPoint>.csv (15 files)
+# ======================================================================
+# Model-ready format (see supplementalMaterials): one row per day,
+# columns Variable, Date, X1..X24. Data is hour-beginning, so hour 00:00 -> X1, 23:00 -> X24.
+SPOT_DIR = OUTPUT_DIR / "formattedSpotHistory"
+SPOT_DIR.mkdir(exist_ok=True)
+
+spot = prices[["SettlementPoint", "Date", "Price"]].copy()
+spot["Day"] = spot["Date"].dt.strftime("%Y-%m-%d")
+spot["HourCol"] = "X" + (spot["Date"].dt.hour + 1).astype(str)
+hour_cols = [f"X{h}" for h in range(1, 25)]
+
+for point, data in spot.groupby("SettlementPoint"):
+    # One row per day, one column per hour; reindex keeps all 24 columns in order
+    wide = data.pivot(index="Day", columns="HourCol", values="Price").reindex(columns=hour_cols)
+    wide.insert(0, "Variable", point)
+    wide = wide.reset_index().rename(columns={"Day": "Date"})
+    wide = wide[["Variable", "Date"] + hour_cols]
+    # Missing hours (DST spring-forward 02:00) are written as "NA", like the examples
+    wide.to_csv(SPOT_DIR / f"spot_{point}.csv", index=False, na_rep="NA")
