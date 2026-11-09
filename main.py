@@ -66,7 +66,7 @@ monthly_avg[["SettlementPoint", "Year", "Month", "AveragePrice"]].to_csv(
 
 
 # ======================================================================
-# Task 4 — Hourly volatility per year, hubs (HB_) only, drop prices ≤ 0 before log returns
+# Task 4 — Hourly volatility per year, hubs (HB_) only, set prices ≤ 0 to NaN before log returns
 # ======================================================================
 # Hubs only (prefix HB_); load zones are excluded by the task
 hubs = prices[prices["SettlementPoint"].str.startswith("HB_")].copy()
@@ -91,4 +91,13 @@ hourly_vol = (
     hubs.groupby(["SettlementPoint", "Year"], as_index=False)["LogReturn"]
     .std()
     .rename(columns={"LogReturn": "HourlyVolatility"})
+)
+
+
+# ======================================================================
+# Task 5 — Write HourlyVolatilityByYear.csv (SettlementPoint, Year, HourlyVolatility)
+# ======================================================================
+# Write hourly volatilities (exact, case-sensitive column names, no index)
+hourly_vol[["SettlementPoint", "Year", "HourlyVolatility"]].to_csv(
+    OUTPUT_DIR / "HourlyVolatilityByYear.csv", index=False
 )
