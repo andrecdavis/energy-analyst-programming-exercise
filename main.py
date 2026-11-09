@@ -38,8 +38,19 @@ prices["Month"] = prices["Date"].dt.month
 
 # Average price per settlement point per year-month.
 # Prices <= 0 are kept on purpose: negative prices are real in deregulated markets.
+# Result: 681 rows, not 15 x 48 = 720. HB_PAN only has data from 2019-04-06,
+# so it has 9 year-months (Apr-Dec 2019); April 2019 is a partial month (600 hours).
 monthly_avg = (
     prices.groupby(["SettlementPoint", "Year", "Month"], as_index=False)["Price"]
+    .mean()
+    .rename(columns={"Price": "AveragePrice"})
+)
+
+# Second average: one price per year-month across ALL settlement points (48 rows).
+# Uses every hourly price from every point in that month, so it weights by hours of data.
+# Note: HB_PAN joins from April 2019, so from then on 15 points feed the average instead of 14.
+monthly_avg_all_points = (
+    prices.groupby(["Year", "Month"], as_index=False)["Price"]
     .mean()
     .rename(columns={"Price": "AveragePrice"})
 )
