@@ -63,3 +63,32 @@ monthly_avg_all_points = (
 monthly_avg[["SettlementPoint", "Year", "Month", "AveragePrice"]].to_csv(
     OUTPUT_DIR / "AveragePriceByMonth.csv", index=False
 )
+
+
+# ======================================================================
+# Task 4 — Hourly volatility per year, hubs (HB_) only, drop prices ≤ 0 before log returns
+# ======================================================================
+# Hubs only (prefix HB_); load zones are excluded by the task
+hubs = prices[prices["SettlementPoint"].str.startswith("HB_")].copy()
+
+# Sort each hub's prices in time order before taking returns
+hubs = hubs.sort_values(["SettlementPoint", "Date"])
+
+# Filter out prices <= 0 (log is only defined for positive values).
+# Set them to NaN instead of dropping the rows, so no return is computed across
+# the gap (a multi-hour change would otherwise be reported as a 1-hour return).
+hubs["Price"] = hubs["Price"].where(hubs["Price"] > 0)
+
+# Hourly log return = ln(P_t) - ln(P_t-1), computed within each hub and year
+# (groupby keeps returns from crossing hubs or year boundaries).
+# Returns into or out of a NaN hour are NaN and are skipped by std().
+hubs["LogReturn"] = hubs.groupby(["SettlementPoint", "Year"])["Price"].transform(
+    lambda p: np.log(p).diff()
+)
+
+# Hourly volatility = standard deviation of log returns (sample std, ddof=1)
+hourly_vol = (
+    hubs.groupby(["SettlementPoint", "Year"], as_index=False)["LogReturn"]
+    .std()
+    .rename(columns={"LogReturn": "HourlyVolatility"})
+)
