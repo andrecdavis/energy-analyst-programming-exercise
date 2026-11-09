@@ -54,3 +54,12 @@ monthly_avg_all_points = (
     .mean()
     .rename(columns={"Price": "AveragePrice"})
 )
+
+
+# ======================================================================
+# Task 3 — Write AveragePriceByMonth.csv (SettlementPoint, Year, Month, AveragePrice)
+# ======================================================================
+# Write the per-settlement-point monthly averages (exactly the 4 required columns, no index)
+monthly_avg[["SettlementPoint", "Year", "Month", "AveragePrice"]].to_csv(
+    OUTPUT_DIR / "AveragePriceByMonth.csv", index=False
+)
