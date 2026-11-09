@@ -137,3 +137,39 @@ for point, data in spot.groupby("SettlementPoint"):
     wide = wide[["Variable", "Date"] + hour_cols]
     # Missing hours (DST spring-forward 02:00) are written as "NA", like the examples
     wide.to_csv(SPOT_DIR / f"spot_{point}.csv", index=False, na_rep="NA")
+
+
+# ======================================================================
+# Bonus — Mean plots: SettlementHubAveragePriceByMonth.png, LoadZoneAveragePriceByMonth.png
+# ======================================================================
+import matplotlib.dates as mdates
+
+# Date column for the x-axis: first day of each month keeps months in chronological order
+monthly_avg["MonthStart"] = pd.to_datetime(dict(year=monthly_avg["Year"], month=monthly_avg["Month"], day=1))
+
+# Eight distinct colors, assigned in a fixed order (one per settlement point)
+COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
+
+
+def plot_monthly_avg(prefix, title, filename):
+    """Overlay one line per settlement point with the given prefix and save as PNG."""
+    data = monthly_avg[monthly_avg["SettlementPoint"].str.startswith(prefix)]
+    fig, ax = plt.subplots(figsize=(12, 6))
+    for color, (point, d) in zip(COLORS, data.groupby("SettlementPoint")):
+        ax.plot(d["MonthStart"], d["AveragePrice"], color=color, linewidth=2, label=point)
+    ax.set_title(title)
+    ax.set_xlabel("Month")
+    ax.set_ylabel("Average price ($/MWh)")
+    # Tick every 3 months, labelled as YYYY-MM-DD (first day of the month)
+    ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=[1, 4, 7, 10]))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+    ax.grid(True, color="#e0e0e0", linewidth=0.8)
+    ax.legend(title="Settlement point", loc="upper left")
+    fig.tight_layout()
+    fig.savefig(OUTPUT_DIR / filename, dpi=150)
+    plt.close(fig)
+
+
+plot_monthly_avg("HB_", "Monthly average price by settlement hub", "SettlementHubAveragePriceByMonth.png")
+plot_monthly_avg("LZ_", "Monthly average price by load zone", "LoadZoneAveragePriceByMonth.png")
