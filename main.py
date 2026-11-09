@@ -173,3 +173,31 @@ def plot_monthly_avg(prefix, title, filename):
 
 plot_monthly_avg("HB_", "Monthly average price by settlement hub", "SettlementHubAveragePriceByMonth.png")
 plot_monthly_avg("LZ_", "Monthly average price by load zone", "LoadZoneAveragePriceByMonth.png")
+
+
+# ======================================================================
+# Bonus — Volatility plots
+# ======================================================================
+# Hub -> color, same assignment as the hub mean plot (sorted hub names, fixed color order)
+hub_names = sorted(hourly_vol["SettlementPoint"].unique())
+HUB_COLORS = dict(zip(hub_names, COLORS))
+vol_wide = hourly_vol.pivot(index="Year", columns="SettlementPoint", values="HourlyVolatility")
+years = vol_wide.index.tolist()
+
+# Grouped bars - compare hubs within each year (tallest bar = Task 6 winner)
+fig, ax = plt.subplots(figsize=(12, 6))
+bar_width = 0.8 / len(hub_names)
+for k, hub in enumerate(hub_names):
+    x = [y + (k - (len(hub_names) - 1) / 2) * bar_width for y in years]
+    ax.bar(x, vol_wide[hub], width=bar_width, color=HUB_COLORS[hub], label=hub)
+ax.set_xticks(years)
+ax.set_title("Hourly price volatility by settlement hub and year")
+ax.set_xlabel("Year")
+ax.set_ylabel("Hourly volatility (std. dev. of log returns)")
+ax.grid(True, axis="y", color="#e0e0e0", linewidth=0.8)
+ax.set_axisbelow(True)
+ax.legend(title="Settlement hub", loc="upper left")
+ax.text(0.5, 0.97, "HB_PAN has data from Apr 2019 only", transform=ax.transAxes, ha="center", va="top", fontsize=9)
+fig.tight_layout()
+fig.savefig(OUTPUT_DIR / "HourlyVolatilityByHubBars.png", dpi=150)
+plt.close(fig)
