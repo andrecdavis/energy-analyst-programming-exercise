@@ -240,66 +240,71 @@ for point, p in profiles.groupby(level="SettlementPoint"):
 # Open-ended analysis: one extreme morning reshapes a whole hourly shape profile.
 #
 # Each shape profile averages only ~18 days (one month-of-year x one day-of-week over
-# 4 years), so a single scarcity event can dominate it. HB_NORTH, January Wednesday:
-#   - On Wed 2018-01-17, prices climbed from ~$73 at 03:00 to $1,561 at 06:00 and
-#     $1,659 at 07:00, then fell back to ~$102 by 09:00 (normal January level ~$25-40).
-#   - It was system-wide: all 14 settlement points priced $1,637-1,710 at 07:00, so this
-#     was a market-wide supply shortage, not local congestion.
-#   - It was a multi-day event: HB_NORTH daily averages were ~$26-32 before, $60.5 on
-#     01-16, $226.5 on 01-17, $71.7 on 01-18, then back to ~$20-28.
-#   - These are the only January hours above $200/MWh in 2016-2019 (01-17 05:00-08:00
-#     and 01-18 06:00-07:00), and 07:00 is the 6th-highest HB_NORTH hour of 2016-2018.
+# 4 years), so a single scarcity event can dominate it. January Wednesday, all points:
+#   - On Wed 2018-01-17, prices across the 14 settlement points rose from $72-79 at 03:00
+#     to $1,543-1,617 at 06:00 and $1,637-1,710 at 07:00, then fell to $102-144 by 09:00
+#     (median January hourly price, all points, 2016-2019: ~$22).
+#   - It was system-wide: all points moved together within a narrow band, so this was a
+#     market-wide supply shortage, not local congestion.
+#   - It was a multi-day event: the all-point daily average was ~$26-33 on 01-12..01-15,
+#     $64.0 on 01-16, $229.7 on 01-17, $75.4 on 01-18, then ~$18-29 on 01-19..01-21.
 #   - Timing (early-morning heating peak in mid-January) is consistent with a cold
 #     snap; weather/load data would be needed to confirm the cause.
-# Effect: that one morning lifts the January-Wednesday 07:00 shape factor to ~3.5x,
-# while the same profile without 2018-01-17 (dashed line) peaks at ~1.6x like the
-# other weekdays. Mean-based shapes from short histories mix "typical shape" with rare
-# events; a model using them should consider more years, medians, or spike handling.
-# A second chart shows hourly prices at all settlement points around the event.
-SPIKE_POINT = "HB_NORTH"
+# Effect: using all points' prices, the January-Wednesday shape peaks at ~3.5x the daily
+# mean (every individual point: 3.35-3.55x), versus at most ~2.0x on other January days.
+# Without 2018-01-17 (dashed line) the Wednesday peak is ~1.7x, like the other weekdays.
+# Mean-based shapes from short histories mix "typical shape" with rare events; a model
+# using them should consider more years, medians, or spike handling.
+# A second chart shows hourly prices at every settlement point around the event.
 SPIKE_MONTH = 1
 DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-month_rows = shape[(shape["SettlementPoint"] == SPIKE_POINT) & (shape["Month"] == SPIKE_MONTH)]
+month_rows = shape[shape["Month"] == SPIKE_MONTH]   # all settlement points
 
-# The single highest hourly price in this month identifies the spike day
+
+def normalized_profile(rows):
+    """24 average hourly prices divided by their mean (same method as the shape profiles)."""
+    hourly = rows.groupby("Hour")["Price"].mean()
+    return hourly / hourly.mean()
+
+
+# The single highest hourly price in January (any point) identifies the spike day
 spike = month_rows.loc[month_rows["Price"].idxmax()]
 spike_day, spike_dow = spike["Date"].normalize(), spike["DayOfWeek"]
 
+# Chart 1: market-wide January shape profile for each day of week
 fig, ax = plt.subplots(figsize=(12, 6))
 for dow, color in zip(range(1, 8), COLORS):
     width = 3 if dow == spike_dow else 1.2
-    ax.plot(range(1, 25), profiles.loc[(SPIKE_POINT, SPIKE_MONTH, dow)], color=color,
-            linewidth=width, label=DAY_NAMES[dow - 1])
+    ax.plot(range(1, 25), normalized_profile(month_rows[month_rows["DayOfWeek"] == dow]),
+            color=color, linewidth=width, label=DAY_NAMES[dow - 1])
 
-# Same day-of-week profile recomputed without the spike day (same normalization)
+# Same day-of-week profile recomputed without the spike day
 same_dow = month_rows[month_rows["DayOfWeek"] == spike_dow]
-hourly = same_dow[same_dow["Date"].dt.normalize() != spike_day].groupby("Hour")["Price"].mean()
-ax.plot(range(1, 25), hourly / hourly.mean(), color=COLORS[spike_dow - 1], linewidth=2,
-        linestyle="--", label=f"{DAY_NAMES[spike_dow - 1]} without {spike_day:%Y-%m-%d}")
+ax.plot(range(1, 25), normalized_profile(same_dow[same_dow["Date"].dt.normalize() != spike_day]),
+        color=COLORS[spike_dow - 1], linewidth=2, linestyle="--",
+        label=f"{DAY_NAMES[spike_dow - 1]} without {spike_day:%Y-%m-%d}")
 
 ax.axhline(1, color="#999999", linewidth=0.8)
-ax.set_title(f"{SPIKE_POINT} January shape profiles: one morning ({spike_day:%Y-%m-%d}, "
-             f"max ${spike['Price']:,.0f}/MWh at {spike['Date']:%H:%M}) drives the Wednesday spike")
+ax.set_title(f"January shape profiles, all settlement points: one morning ({spike_day:%Y-%m-%d}) "
+             f"drives the {DAY_NAMES[spike_dow - 1]} spike")
 ax.set_xlabel("Hour (hour-beginning, 1 = 00:00)")
 ax.set_ylabel("Shape factor (mean = 1)")
 ax.set_xticks([1, 6, 12, 18, 24])
 ax.grid(True, color="#e0e0e0", linewidth=0.8)
 ax.legend(title="Day of week", loc="upper right")
 fig.tight_layout()
-fig.savefig(OUTPUT_DIR / "ShapeProfileSpike_HB_NORTH_January.png", dpi=150)
+fig.savefig(OUTPUT_DIR / "ShapeProfileSpike_January.png", dpi=150)
 plt.close(fig)
 
-# Second chart: hourly prices at every settlement point for the days around the spike.
+# Chart 2: hourly prices at every settlement point for the days around the spike.
 # The lines lie almost on top of each other, showing the price jump was system-wide.
 window = prices[(prices["Date"] >= spike_day - pd.Timedelta(days=2))
                 & (prices["Date"] < spike_day + pd.Timedelta(days=3))]
 fig, ax = plt.subplots(figsize=(12, 6))
 for point, d in window.groupby("SettlementPoint"):
-    ax.plot(d["Date"], d["Price"], color="#9a9a9a", linewidth=1)
-north = window[window["SettlementPoint"] == SPIKE_POINT]
-ax.plot(north["Date"], north["Price"], color=COLORS[0], linewidth=2, label=SPIKE_POINT)
-ax.plot([], [], color="#9a9a9a", linewidth=1,
-        label=f"All other settlement points ({window['SettlementPoint'].nunique() - 1})")
+    ax.plot(d["Date"], d["Price"], color="#5b7fa8", linewidth=1, alpha=0.7)
+ax.plot([], [], color="#5b7fa8", linewidth=1,
+        label=f"Each settlement point ({window['SettlementPoint'].nunique()})")
 peak = window[window["Date"] == spike["Date"]]["Price"]
 ax.set_title(f"Hourly prices at all settlement points, {spike_day - pd.Timedelta(days=2):%Y-%m-%d} to "
              f"{spike_day + pd.Timedelta(days=2):%Y-%m-%d} (at {spike['Date']:%H:%M} on {spike_day:%Y-%m-%d}: "
